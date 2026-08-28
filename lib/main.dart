@@ -130,17 +130,24 @@ class _SetupAccountScreenState extends State<SetupAccountScreen> {
           child: Stack(
             children: [
               Positioned(
-                top: 18,
-                right: 28,
-                child: TextButton(
+                top: 12,
+                right: 20,
+                child: ElevatedButton(
                   onPressed: () {},
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFFB300),
+                    foregroundColor: const Color(0xFF202124),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                   child: const Text(
                     'Skip Login',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
@@ -151,33 +158,22 @@ class _SetupAccountScreenState extends State<SetupAccountScreen> {
                     constraints: const BoxConstraints(
                       maxWidth: 1200,
                     ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 5,
-                          child: Padding(
-                            padding: const EdgeInsets.only(
-                              right: 55,
-                              top: 15,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Image.asset(
-                                  'assets/saartho_logo.png',
-                                  width: 220,
-                                ),
-                                const SizedBox(height: 30),
-                                const Text(
-                                  'Setup your account',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 34,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 35),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isNarrow = constraints.maxWidth < 800;
+                        final leftPanel = Padding(
+                          padding: EdgeInsets.only(
+                            right: isNarrow ? 0 : 55,
+                            top: 15,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Image.asset(
+                                'assets/saartho_logo.png',
+                                width: 280,
+                              ),
+                              const SizedBox(height: 35),
                                 _infoSection(
                                   title: 'Our Goal',
                                   text:
@@ -196,13 +192,10 @@ class _SetupAccountScreenState extends State<SetupAccountScreen> {
                                       'Secure & Reliable — Your business information deserves protection and trust.\n'
                                       'Ready to Grow — Built to support businesses from today to tomorrow.',
                                 ),
-                              ],
-                            ),
+                            ],
                           ),
-                        ),
-                        Expanded(
-                          flex: 5,
-                          child: Container(
+                        );
+                        final accountCard = Container(
                             padding: const EdgeInsets.all(30),
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.94),
@@ -307,29 +300,52 @@ class _SetupAccountScreenState extends State<SetupAccountScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 18),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
-                                    TextButton(
-                                      onPressed: () {},
-                                      child: const Text(
-                                        'Already have an account? Login',
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: TextButton(
+                                        onPressed: () {},
+                                        child: const Text(
+                                          'Already have an account? Login',
+                                        ),
                                       ),
                                     ),
-                                    TextButton(
-                                      onPressed: () {},
-                                      child: const Text(
-                                        'Restore Saartho Backup',
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: TextButton(
+                                        onPressed: () {},
+                                        child: const Text(
+                                          'Restore Saartho Backup',
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
                               ],
                             ),
-                          ),
-                        ),
-                      ],
+                          );
+
+                        if (isNarrow) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              leftPanel,
+                              const SizedBox(height: 28),
+                              accountCard,
+                            ],
+                          );
+                        }
+
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(flex: 5, child: leftPanel),
+                            Expanded(flex: 5, child: accountCard),
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ),

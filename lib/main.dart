@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(const SaarthoApp());
@@ -15,6 +16,12 @@ class SaarthoApp extends StatefulWidget {
 
 class _SaarthoAppState extends State<SaarthoApp> {
   final _themeController = SaarthoThemeController();
+
+  @override
+  void initState() {
+    super.initState();
+    _themeController.load();
+  }
 
   @override
   void dispose() {
@@ -36,6 +43,106 @@ class _SaarthoAppState extends State<SaarthoApp> {
   }
 }
 
+class _LoginAtmospherePainter extends CustomPainter {
+  const _LoginAtmospherePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final baseTint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Color(0x33FFFFFF),
+          Color(0x09F8D8EB),
+          Color(0x0B8EE7FF),
+          Color(0x0BFFFFFF),
+        ],
+      ).createShader(Offset.zero & size);
+    canvas.drawRect(Offset.zero & size, baseTint);
+
+    final glows = <({Offset center, double radius, Color start, Color end, double blur})>[
+      (center: const Offset(0.18, 0.18), radius: 260, start: Color(0x66F7B4D7), end: Color(0x00F7B4D7), blur: 70),
+      (center: const Offset(0.78, 0.12), radius: 290, start: Color(0x66A7F3FF), end: Color(0x00A7F3FF), blur: 90),
+      (center: const Offset(0.66, 0.78), radius: 340, start: Color(0x66D9C3FF), end: Color(0x00D9C3FF), blur: 100),
+      (center: const Offset(0.25, 0.82), radius: 300, start: Color(0x66C8F8D8), end: Color(0x00C8F8D8), blur: 80),
+      (center: const Offset(0.9, 0.55), radius: 250, start: Color(0x66FFDCA8), end: Color(0x00FFDCA8), blur: 55),
+    ];
+
+    for (final glow in glows) {
+      final paint = Paint()
+        ..shader = RadialGradient(
+          colors: [glow.start, glow.end],
+          stops: const [0.14, 1],
+        ).createShader(
+          Rect.fromCircle(
+            center: Offset(
+              size.width * glow.center.dx,
+              size.height * glow.center.dy,
+            ),
+            radius: glow.radius,
+          ),
+        )
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, glow.blur);
+      canvas.drawCircle(
+        Offset(
+          size.width * glow.center.dx,
+          size.height * glow.center.dy,
+        ),
+        glow.radius,
+        paint,
+      );
+    }
+
+    final upperRibbon = Path()
+      ..moveTo(-size.width * 0.1, size.height * 0.28)
+      ..quadraticBezierTo(
+        size.width * 0.3,
+        size.height * 0.08,
+        size.width * 1.08,
+        size.height * 0.24,
+      );
+    final lowerRibbon = Path()
+      ..moveTo(-size.width * 0.06, size.height * 0.84)
+      ..quadraticBezierTo(
+        size.width * 0.48,
+        size.height * 0.62,
+        size.width * 1.08,
+        size.height * 0.76,
+      );
+    final middleRibbon = Path()
+      ..moveTo(-size.width * 0.04, size.height * 0.52)
+      ..quadraticBezierTo(
+        size.width * 0.42,
+        size.height * 0.42,
+        size.width * 1.1,
+        size.height * 0.55,
+      );
+
+    final ribbonPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * 0.1
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 30);
+
+    canvas.drawPath(upperRibbon, ribbonPaint..color = const Color(0x44F7D5EE));
+    canvas.drawPath(lowerRibbon, ribbonPaint..color = const Color(0x3FB8F5FF));
+    canvas.drawPath(middleRibbon, ribbonPaint..color = const Color(0x3FC3FFD9));
+
+    final highlight = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * 0.01
+      ..color = const Color(0xA6FFFFFF)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+    canvas.drawPath(upperRibbon, highlight);
+    canvas.drawPath(lowerRibbon, highlight..color = const Color(0xA6DFF8FF));
+    canvas.drawPath(middleRibbon, highlight..color = const Color(0xA8DFFBE6));
+  }
+
+  @override
+  bool shouldRepaint(covariant _LoginAtmospherePainter oldDelegate) => false;
+}
+
 class SetupAccountScreen extends StatefulWidget {
   const SetupAccountScreen({super.key, required this.themeController});
 
@@ -46,6 +153,15 @@ class SetupAccountScreen extends StatefulWidget {
 }
 
 class _SetupAccountScreenState extends State<SetupAccountScreen> {
+  static const _surface = Color(0xFFFFFFFF);
+  static const _navy = Color(0xFF0F2747);
+  static const _blue = Color(0xFF1769E0);
+  static const _mutedText = Color(0xFF52616F);
+  static const _border = Color(0xFFD7E0EA);
+  static const _fieldBackground = Color(0xFFF7F9FC);
+  static const _warningBackground = Color(0xFFFFF4D6);
+  static const _warningText = Color(0xFF6B4B00);
+
   final _nameController = TextEditingController();
   final _businessController = TextEditingController();
   final _mobileController = TextEditingController();
@@ -80,11 +196,21 @@ class _SetupAccountScreenState extends State<SetupAccountScreen> {
         decoration: InputDecoration(
           labelText: label,
           filled: true,
-          fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+          fillColor: _fieldBackground,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
+            borderSide: const BorderSide(color: _border),
           ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: _border),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: _blue, width: 2),
+          ),
+          labelStyle: const TextStyle(color: _mutedText),
+          floatingLabelStyle: const TextStyle(color: _blue),
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
             vertical: 15,
@@ -99,6 +225,20 @@ class _SetupAccountScreenState extends State<SetupAccountScreen> {
     required String title,
     required String text,
   }) {
+    final headerColor = switch (title) {
+      'Our Goal' => const Color(0xFF1F2F7A),
+      'Our Vision' => const Color(0xFF2B5AA9),
+      'Why Choose Us?' => const Color(0xFF3A5B9B),
+      _ => const Color(0xFF122B53),
+    };
+
+    final bodyColor = switch (title) {
+      'Our Goal' => const Color(0xFF163B63),
+      'Our Vision' => const Color(0xFF23497D),
+      'Why Choose Us?' => const Color(0xFF2D4E7A),
+      _ => const Color(0xFF24456A),
+    };
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 24),
       child: Column(
@@ -106,19 +246,34 @@ class _SetupAccountScreenState extends State<SetupAccountScreen> {
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: headerColor,
               fontSize: 22,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w800,
+              shadows: [
+                Shadow(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  blurRadius: 10,
+                  offset: const Offset(0, 1),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 8),
           Text(
             text,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.92),
+              color: bodyColor,
               fontSize: 15,
-              height: 1.5,
+              height: 1.6,
+              fontWeight: FontWeight.w600,
+              shadows: [
+                Shadow(
+                  color: Colors.white.withValues(alpha: 0.28),
+                  blurRadius: 8,
+                  offset: const Offset(0, 1),
+                ),
+              ],
             ),
           ),
         ],
@@ -132,65 +287,154 @@ class _SetupAccountScreenState extends State<SetupAccountScreen> {
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Theme.of(context).colorScheme.primary,
-              Theme.of(context).colorScheme.secondary,
-              Theme.of(context).colorScheme.primaryContainer,
+              Color(0xFFF9D5EA),
+              Color(0xFFDFF7FF),
+              Color(0xFFEFFDF8),
+              Color(0xFFE8F0FF),
+              Color(0xFFE9F7DE),
+              Color(0xFFF7EAD4),
             ],
+            stops: [0.0, 0.28, 0.45, 0.68, 0.84, 1.0],
           ),
         ),
         child: SafeArea(
           child: Stack(
             children: [
+              const Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: _LoginAtmospherePainter(),
+                  ),
+                ),
+              ),
               Positioned(
-                top: 12,
-                right: 20,
-                child: ElevatedButton(
-                  onPressed: () => _openDashboard(),
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.secondary,
-                      foregroundColor: Theme.of(context).colorScheme.onSecondary,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                top: -45,
+                left: -30,
+                width: 420,
+                height: 420,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [Color(0x66F8AFE0), Color(0x00F8AFE0)],
+                      radius: 1.1,
                     ),
                   ),
-                  child: const Text(
-                    'Skip Login',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              Positioned(
+                top: 120,
+                right: -20,
+                width: 470,
+                height: 470,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [Color(0x66FFD1A6), Color(0x00FFD1A6)],
+                      radius: 1.0,
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: -80,
+                left: 120,
+                width: 500,
+                height: 500,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [Color(0x52C5EEFF), Color(0x00C5EEFF)],
+                      radius: 1.25,
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 18,
+                right: 20,
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 18),
+                  child: ElevatedButton(
+                    onPressed: () => _openDashboard(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0E2C73),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                      shadowColor: const Color(0x4D0E2C73),
+                    ),
+                    child: const Text(
+                      'Skip Login',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ),
               ),
               SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(45, 45, 45, 35),
+                padding: const EdgeInsets.symmetric(vertical: 35),
                 child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: 1200,
-                    ),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final isNarrow = constraints.maxWidth < 800;
-                        final leftPanel = Padding(
-                          padding: EdgeInsets.only(
-                            right: isNarrow ? 0 : 55,
-                            top: 15,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Image.asset(
-                                'assets/saartho_logo.png',
-                                width: 280,
-                              ),
-                              const SizedBox(height: 35),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1220),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final isNarrow = constraints.maxWidth < 800;
+                          final horizontalPadding = isNarrow ? 20.0 : 45.0;
+                          final leftPanel = Padding(
+                            padding: EdgeInsets.only(
+                              right: isNarrow ? 0 : 55,
+                              top: 15,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Center(
+                                  child: Container(
+                                    width: 360,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 14,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(alpha: 0.72),
+                                      borderRadius: BorderRadius.circular(30),
+                                      border: Border.all(
+                                        color: Colors.white.withValues(alpha: 0.7),
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFFB3BDE5).withValues(alpha: 0.38),
+                                          blurRadius: 30,
+                                          offset: const Offset(0, 18),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Image.asset(
+                                      'assets/saartho_logo.png',
+                                      width: 280,
+                                      fit: BoxFit.contain,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 35),
                                 _infoSection(
                                   title: 'Our Goal',
                                   text:
@@ -209,14 +453,25 @@ class _SetupAccountScreenState extends State<SetupAccountScreen> {
                                       'Secure & Reliable — Your business information deserves protection and trust.\n'
                                       'Ready to Grow — Built to support businesses from today to tomorrow.',
                                 ),
-                            ],
-                          ),
-                        );
-                        final accountCard = Container(
+                              ],
+                            ),
+                          );
+                          final accountCard = Container(
                             padding: const EdgeInsets.all(30),
                             decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.surface,
-                              borderRadius: BorderRadius.circular(24),
+                              color: _surface.withValues(alpha: 0.96),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: const Color(0xFFF0F4FA),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0x1A1E3A68),
+                                  blurRadius: 28,
+                                  spreadRadius: 1,
+                                  offset: const Offset(0, 16),
+                                ),
+                              ],
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -226,7 +481,7 @@ class _SetupAccountScreenState extends State<SetupAccountScreen> {
                                   style: TextStyle(
                                     fontSize: 28,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF202124),
+                                    color: _navy,
                                   ),
                                 ),
                                 const SizedBox(height: 24),
@@ -255,8 +510,7 @@ class _SetupAccountScreenState extends State<SetupAccountScreen> {
                                   suffixIcon: IconButton(
                                     onPressed: () {
                                       setState(() {
-                                        _obscurePassword =
-                                            !_obscurePassword;
+                                        _obscurePassword = !_obscurePassword;
                                       });
                                     },
                                     icon: Icon(
@@ -271,7 +525,7 @@ class _SetupAccountScreenState extends State<SetupAccountScreen> {
                                   'Alpha numeric and special characters are allowed.',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: Colors.black54,
+                                    color: _mutedText,
                                   ),
                                 ),
                                 const SizedBox(height: 14),
@@ -279,14 +533,17 @@ class _SetupAccountScreenState extends State<SetupAccountScreen> {
                                   width: double.infinity,
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFFFF3CD),
+                                    color: _warningBackground,
+                                    border: Border.all(
+                                      color: const Color(0xFFE8C66A),
+                                    ),
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: const Text(
                                     'Warning: Either Phone number or Email ID '
                                     'is required for Account setup.',
                                     style: TextStyle(
-                                      color: Color(0xFF664D03),
+                                      color: _warningText,
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -299,11 +556,12 @@ class _SetupAccountScreenState extends State<SetupAccountScreen> {
                                   child: ElevatedButton(
                                     onPressed: () => _openDashboard(),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: Theme.of(context).colorScheme.primary,
-                                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                                      backgroundColor: const Color(0xFF0E63E0),
+                                      foregroundColor: Colors.white,
+                                      shadowColor: const Color(0x3D0E63E0),
+                                      elevation: 3,
                                       shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(12),
                                       ),
                                     ),
                                     child: const Text(
@@ -323,6 +581,9 @@ class _SetupAccountScreenState extends State<SetupAccountScreen> {
                                       width: double.infinity,
                                       child: TextButton(
                                         onPressed: () => _openDashboard(),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: const Color(0xFF1A3E84),
+                                        ),
                                         child: const Text(
                                           'Already have an account? Login',
                                         ),
@@ -330,10 +591,16 @@ class _SetupAccountScreenState extends State<SetupAccountScreen> {
                                     ),
                                     SizedBox(
                                       width: double.infinity,
-                                      child: TextButton(
+                                      child: TextButton.icon(
                                         onPressed: () {},
-                                        child: const Text(
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: const Color(0xFF0B7AA8),
+                                          padding: const EdgeInsets.symmetric(vertical: 6),
+                                        ),
+                                        icon: const Icon(Icons.restore, size: 22),
+                                        label: const Text(
                                           'Restore Saartho Backup',
+                                          style: TextStyle(fontWeight: FontWeight.w600),
                                         ),
                                       ),
                                     ),
@@ -343,25 +610,31 @@ class _SetupAccountScreenState extends State<SetupAccountScreen> {
                             ),
                           );
 
-                        if (isNarrow) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              leftPanel,
-                              const SizedBox(height: 28),
-                              accountCard,
-                            ],
-                          );
-                        }
+                          final content = isNarrow
+                              ? Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    leftPanel,
+                                    const SizedBox(height: 28),
+                                    accountCard,
+                                  ],
+                                )
+                              : Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(flex: 5, child: leftPanel),
+                                    Expanded(flex: 5, child: accountCard),
+                                  ],
+                                );
 
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(flex: 5, child: leftPanel),
-                            Expanded(flex: 5, child: accountCard),
-                          ],
-                        );
-                      },
+                          return Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: horizontalPadding,
+                            ),
+                            child: content,
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
@@ -403,41 +676,54 @@ class SaarthoThemes {
   static const accent = Color(0xFF00B8D4);
 
   static const _palettes = <String, SaarthoPalette>{
-    'Dark Royal Blue & White': SaarthoPalette(Color(0xFF0B3D91), Color(0xFF00B8D4), Color(0xFFDDEBFA), Color(0xFFC7DDF2), Color(0xFFEAF4FF)),
-    'Dark Teal and Gray': SaarthoPalette(Color(0xFF0F5C5E), Color(0xFFB8D8D8), Color(0xFFDCEBE9), Color(0xFFC3DAD8), Color(0xFFEAF5F3)),
-    'Dark Purple and Lavender': SaarthoPalette(Color(0xFF542C82), Color(0xFFD4B9FF), Color(0xFFE9DDF8), Color(0xFFD9C7EC), Color(0xFFF4ECFF)),
-    'Dark Emerald and Mint': SaarthoPalette(Color(0xFF086B50), Color(0xFF9BE7C4), Color(0xFFD8EEE3), Color(0xFFBEDDCE), Color(0xFFE7F7EE)),
-    'Amber and Orange': SaarthoPalette(Color(0xFF9A5B00), Color(0xFFFFB300), Color(0xFFFFE7B0), Color(0xFFFFD98A), Color(0xFFFFF1D1)),
-    'Dark Mode': SaarthoPalette(Color(0xFF263238), Color(0xFF80CBC4), Color(0xFF26353B), Color(0xFF172126), Color(0xFF30434A)),
-    'Emerald Green and Mint': SaarthoPalette(Color(0xFF18794E), Color(0xFF8CE0B5), Color(0xFFD8EEDC), Color(0xFFC1DFC8), Color(0xFFE9F7EC)),
-    'Coral and Peach': SaarthoPalette(Color(0xFFB84A3A), Color(0xFFFFB39C), Color(0xFFFFE0D6), Color(0xFFFFCEC0), Color(0xFFFFEEE8)),
-    'Slate Blue and Gray': SaarthoPalette(Color(0xFF40566F), Color(0xFFAFC1D4), Color(0xFFDCE5EC), Color(0xFFC6D3DF), Color(0xFFEDF3F7)),
-    'Indigo and Sky Blue': SaarthoPalette(Color(0xFF3949AB), Color(0xFF81D4FA), Color(0xFFDCE5FA), Color(0xFFC7D6F2), Color(0xFFEDF3FF)),
+    'Dark Royal Blue & White': SaarthoPalette(primary: Color(0xFF123B8F), secondary: Color(0xFF2F80ED), surface: Colors.white, background: Color(0xFFF2F6FC), elevated: Color(0xFFE2EBF8), text: Color(0xFF101828), mutedText: Color(0xFF475467), icon: Color(0xFF1769E0), border: Color(0xFFD5E2F5), selectedBackground: Color(0xFF1769E0), selectedForeground: Colors.white, buttonBackground: Color(0xFF1769E0), buttonForeground: Colors.white, inputBackground: Color(0xFFF7F9FC), inputText: Color(0xFF101828), inputHint: Color(0xFF667085), dialogBackground: Colors.white, dialogText: Color(0xFF101828)),
+    'Dark Teal and Gray': SaarthoPalette(primary: Color(0xFF075E63), secondary: Color(0xFF57C7B5), surface: Colors.white, background: Color(0xFFEAF7F5), elevated: Color(0xFFD4EEE9), text: Color(0xFF102A2D), mutedText: Color(0xFF4D6668), icon: Color(0xFF0A6E73), border: Color(0xFFB9DDD7), selectedBackground: Color(0xFF087F86), selectedForeground: Colors.white, buttonBackground: Color(0xFF075E63), buttonForeground: Colors.white, inputBackground: Color(0xFFF5FBFA), inputText: Color(0xFF102A2D), inputHint: Color(0xFF607B7D), dialogBackground: Colors.white, dialogText: Color(0xFF102A2D)),
+    'Dark Purple and Lavender': SaarthoPalette(primary: Color(0xFF542C82), secondary: Color(0xFFD4B9FF), surface: Colors.white, background: Color(0xFFF7F2FF), elevated: Color(0xFFE9DDF8), text: Color(0xFF211631), mutedText: Color(0xFF655A72), icon: Color(0xFF5B2DB1), border: Color(0xFFDCCCF0), selectedBackground: Color(0xFF673AB7), selectedForeground: Colors.white, buttonBackground: Color(0xFF542C82), buttonForeground: Colors.white, inputBackground: Color(0xFFFBF9FE), inputText: Color(0xFF211631), inputHint: Color(0xFF746A82), dialogBackground: Colors.white, dialogText: Color(0xFF211631)),
+    'Dark Emerald and Mint': SaarthoPalette(primary: Color(0xFF086B50), secondary: Color(0xFF9BE7C4), surface: Colors.white, background: Color(0xFFEDF9F2), elevated: Color(0xFFD8EEE3), text: Color(0xFF102B21), mutedText: Color(0xFF50675D), icon: Color(0xFF087A5C), border: Color(0xFFBFE0CE), selectedBackground: Color(0xFF087A5C), selectedForeground: Colors.white, buttonBackground: Color(0xFF086B50), buttonForeground: Colors.white, inputBackground: Color(0xFFF7FCF9), inputText: Color(0xFF102B21), inputHint: Color(0xFF62786D), dialogBackground: Colors.white, dialogText: Color(0xFF102B21)),
+    'Amber and Orange': SaarthoPalette(primary: Color(0xFF9A5B00), secondary: Color(0xFFFFB300), surface: Colors.white, background: Color(0xFFFFF8E8), elevated: Color(0xFFFFE7B0), text: Color(0xFF30200A), mutedText: Color(0xFF6E5A39), icon: Color(0xFFB76A00), border: Color(0xFFEACB8A), selectedBackground: Color(0xFFE88700), selectedForeground: Color(0xFF2D1B00), buttonBackground: Color(0xFF9A5B00), buttonForeground: Colors.white, inputBackground: Color(0xFFFFFCF4), inputText: Color(0xFF30200A), inputHint: Color(0xFF7A694A), dialogBackground: Colors.white, dialogText: Color(0xFF30200A)),
+    'Dark Mode': SaarthoPalette(primary: Color(0xFF263238), secondary: Color(0xFF80CBC4), surface: Color(0xFF26353B), background: Color(0xFF172126), elevated: Color(0xFF30434A), text: Colors.white, mutedText: Color(0xFFCFD8DC), icon: Color(0xFF80CBC4), border: Color(0xFF4B6269), selectedBackground: Color(0xFF40636A), selectedForeground: Colors.white, buttonBackground: Color(0xFF80CBC4), buttonForeground: Color(0xFF102326), inputBackground: Color(0xFF30434A), inputText: Colors.white, inputHint: Color(0xFFB0BEC5), dialogBackground: Color(0xFF26353B), dialogText: Colors.white),
+    'Emerald Green and Mint': SaarthoPalette(primary: Color(0xFF18794E), secondary: Color(0xFF8CE0B5), surface: Colors.white, background: Color(0xFFEEF9F0), elevated: Color(0xFFD8EEDC), text: Color(0xFF102B1C), mutedText: Color(0xFF53685B), icon: Color(0xFF188651), border: Color(0xFFBFE0C5), selectedBackground: Color(0xFF188651), selectedForeground: Colors.white, buttonBackground: Color(0xFF18794E), buttonForeground: Colors.white, inputBackground: Color(0xFFF8FCF8), inputText: Color(0xFF102B1C), inputHint: Color(0xFF65796B), dialogBackground: Colors.white, dialogText: Color(0xFF102B1C)),
+    'Coral and Peach': SaarthoPalette(primary: Color(0xFFB84A3A), secondary: Color(0xFFFFB39C), surface: Colors.white, background: Color(0xFFFFF1EC), elevated: Color(0xFFFFE0D6), text: Color(0xFF351A17), mutedText: Color(0xFF755953), icon: Color(0xFFC54C3A), border: Color(0xFFF0C8BC), selectedBackground: Color(0xFFD95745), selectedForeground: Colors.white, buttonBackground: Color(0xFFB84A3A), buttonForeground: Colors.white, inputBackground: Color(0xFFFFFAF8), inputText: Color(0xFF351A17), inputHint: Color(0xFF856A63), dialogBackground: Colors.white, dialogText: Color(0xFF351A17)),
+    'Slate Blue and Gray': SaarthoPalette(primary: Color(0xFF40566F), secondary: Color(0xFFAFC1D4), surface: Colors.white, background: Color(0xFFF1F5F8), elevated: Color(0xFFDCE5EC), text: Color(0xFF17212B), mutedText: Color(0xFF586978), icon: Color(0xFF45647F), border: Color(0xFFC7D3DE), selectedBackground: Color(0xFF526E89), selectedForeground: Colors.white, buttonBackground: Color(0xFF40566F), buttonForeground: Colors.white, inputBackground: Color(0xFFF8FAFC), inputText: Color(0xFF17212B), inputHint: Color(0xFF6B7B89), dialogBackground: Colors.white, dialogText: Color(0xFF17212B)),
+    'Indigo and Sky Blue': SaarthoPalette(primary: Color(0xFF3949AB), secondary: Color(0xFF81D4FA), surface: Colors.white, background: Color(0xFFF1F5FF), elevated: Color(0xFFDCE5FA), text: Color(0xFF171B3A), mutedText: Color(0xFF59617B), icon: Color(0xFF3F51B5), border: Color(0xFFC8D5F2), selectedBackground: Color(0xFF3949AB), selectedForeground: Colors.white, buttonBackground: Color(0xFF3949AB), buttonForeground: Colors.white, inputBackground: Color(0xFFF8FAFF), inputText: Color(0xFF171B3A), inputHint: Color(0xFF6D7692), dialogBackground: Colors.white, dialogText: Color(0xFF171B3A)),
   };
 
   static ThemeData themeFor(String name) {
     final palette = paletteFor(name);
-    final dark = name == 'Dark Mode';
-    final background = dark ? palette.background : Color.alphaBlend(palette.primary.withValues(alpha: .14), palette.background);
-    final surface = dark ? palette.surface : Color.alphaBlend(palette.secondary.withValues(alpha: .10), palette.surface);
-    final elevated = dark ? palette.elevated : Color.alphaBlend(palette.secondary.withValues(alpha: .10), palette.elevated);
-    final scheme = ColorScheme.fromSeed(seedColor: palette.primary, brightness: dark ? Brightness.dark : Brightness.light).copyWith(
-      primary: palette.primary, secondary: palette.secondary, surface: surface,
-      surfaceContainer: elevated, surfaceContainerHighest: background,
-      onSurface: dark ? Colors.white : const Color(0xFF17212B),
-      onSurfaceVariant: dark ? palette.secondary : Color.alphaBlend(palette.primary.withValues(alpha: .45), Colors.black),
-      onPrimary: Colors.white,
+    final scheme = ColorScheme.fromSeed(seedColor: palette.primary, brightness: Brightness.light).copyWith(
+      primary: palette.primary, secondary: palette.secondary, surface: palette.surface,
+      surfaceContainer: palette.elevated, surfaceContainerHighest: palette.background,
+      onSurface: palette.text, onSurfaceVariant: palette.mutedText,
+      onPrimary: palette.buttonForeground,
+      onSecondary: palette.selectedForeground,
+      outline: palette.border,
+      outlineVariant: palette.border,
+      error: const Color(0xFFB3261E),
+      onError: Colors.white,
     );
     return ThemeData(
       fontFamily: 'Arial',
       useMaterial3: true,
-      colorScheme: scheme.copyWith(surface: palette.surface, surfaceContainer: palette.elevated, surfaceContainerHighest: palette.background),
-      scaffoldBackgroundColor: background,
-      cardTheme: CardThemeData(color: elevated, surfaceTintColor: palette.secondary.withValues(alpha: .18), elevation: 5),
-      dividerTheme: DividerThemeData(color: palette.secondary.withValues(alpha: .35)),
-      inputDecorationTheme: InputDecorationTheme(filled: true, fillColor: palette.surface, focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: palette.secondary, width: 2))),
-      dialogTheme: DialogThemeData(backgroundColor: palette.surface),
-      popupMenuTheme: PopupMenuThemeData(color: palette.surface, surfaceTintColor: palette.secondary.withValues(alpha: .12)),
+      colorScheme: scheme,
+      scaffoldBackgroundColor: palette.background,
+      cardTheme: CardThemeData(color: palette.surface, surfaceTintColor: Colors.transparent, elevation: 3),
+      dividerTheme: DividerThemeData(color: palette.border),
+      inputDecorationTheme: InputDecorationTheme(filled: true, fillColor: palette.inputBackground, labelStyle: TextStyle(color: palette.inputHint), hintStyle: TextStyle(color: palette.inputHint), focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: palette.secondary, width: 2))),
+      dialogTheme: DialogThemeData(backgroundColor: palette.dialogBackground, titleTextStyle: TextStyle(color: palette.dialogText, fontSize: 24, fontWeight: FontWeight.bold), contentTextStyle: TextStyle(color: palette.dialogText)),
+      popupMenuTheme: PopupMenuThemeData(color: palette.surface, surfaceTintColor: Colors.transparent),
+      elevatedButtonTheme: ElevatedButtonThemeData(style: ElevatedButton.styleFrom(backgroundColor: palette.buttonBackground, foregroundColor: palette.buttonForeground)),
+      textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(foregroundColor: palette.primary)),
+      iconTheme: IconThemeData(color: palette.icon),
+      textTheme: ThemeData.light().textTheme.apply(
+        bodyColor: palette.text,
+        displayColor: palette.text,
+      ),
+      listTileTheme: ListTileThemeData(
+        textColor: palette.text,
+        iconColor: palette.icon,
+        selectedColor: palette.selectedForeground,
+        selectedTileColor: palette.selectedBackground,
+      ),
     );
   }
 
@@ -445,21 +731,65 @@ class SaarthoThemes {
 }
 
 class SaarthoPalette {
-  const SaarthoPalette(this.primary, this.secondary, this.surface, this.background, this.elevated);
+  const SaarthoPalette({
+    required this.primary,
+    required this.secondary,
+    required this.surface,
+    required this.background,
+    required this.elevated,
+    required this.text,
+    required this.mutedText,
+    required this.icon,
+    required this.border,
+    required this.selectedBackground,
+    required this.selectedForeground,
+    required this.buttonBackground,
+    required this.buttonForeground,
+    required this.inputBackground,
+    required this.inputText,
+    required this.inputHint,
+    required this.dialogBackground,
+    required this.dialogText,
+  });
   final Color primary;
   final Color secondary;
   final Color surface;
   final Color background;
   final Color elevated;
+  final Color text;
+  final Color mutedText;
+  final Color icon;
+  final Color border;
+  final Color selectedBackground;
+  final Color selectedForeground;
+  final Color buttonBackground;
+  final Color buttonForeground;
+  final Color inputBackground;
+  final Color inputText;
+  final Color inputHint;
+  final Color dialogBackground;
+  final Color dialogText;
 }
 
 class SaarthoThemeController extends ChangeNotifier {
+  static const _preferenceKey = 'selected_theme';
   String selected = SaarthoThemes.names.first;
 
   ThemeData get theme => SaarthoThemes.themeFor(selected);
 
-  void apply(String themeName) {
+  Future<void> load() async {
+    final preferences = await SharedPreferences.getInstance();
+    final savedTheme = preferences.getString(_preferenceKey);
+    if (savedTheme != null && SaarthoThemes.names.contains(savedTheme)) {
+      selected = savedTheme;
+      notifyListeners();
+    }
+  }
+
+  Future<void> apply(String themeName) async {
     selected = themeName;
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(_preferenceKey, themeName);
     notifyListeners();
   }
 }
@@ -492,18 +822,11 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   bool _advanced = false;
   bool _privacy = false;
-  String _pendingTheme = SaarthoThemes.names.first;
   String _dateFilter = 'Today';
   DateTime? _customStart;
   DateTime? _customEnd;
   int _expiryDays = 30;
   final _plan = const SaarthoPlan();
-
-  @override
-  void initState() {
-    super.initState();
-    _pendingTheme = widget.themeController.selected;
-  }
 
   String get _greeting {
     final hour = DateTime.now().hour;
@@ -657,19 +980,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final comingSoon = label == 'Multi Device Sync';
     final themeLink = LayerLink();
     final item = Builder(builder: (rowContext) => ListTile(
-          dense: true, selected: label == 'Home', selectedTileColor: Theme.of(rowContext).colorScheme.secondaryContainer,
+          dense: true, selected: label == 'Home', selectedTileColor: Theme.of(rowContext).colorScheme.primary,
           leading: Container(
             width: 34,
             height: 34,
             decoration: BoxDecoration(
               gradient: LinearGradient(colors: [
                 label == 'Home' ? Theme.of(rowContext).colorScheme.secondary : Theme.of(rowContext).colorScheme.surfaceContainer,
-                Theme.of(rowContext).colorScheme.primary.withValues(alpha: .32),
+                Theme.of(rowContext).colorScheme.surfaceContainerHighest,
               ]),
               borderRadius: BorderRadius.circular(10),
               boxShadow: [BoxShadow(color: Theme.of(rowContext).colorScheme.primary.withValues(alpha: .20), blurRadius: 5, offset: const Offset(0, 2))],
             ),
-            child: Icon(_iconFor(label), size: 19, color: label == 'Home' ? Theme.of(rowContext).colorScheme.onSecondary : Theme.of(rowContext).colorScheme.secondary),
+            child: Icon(_iconFor(label), size: 19, color: Theme.of(rowContext).colorScheme.primary),
           ),
           title: Text(label, overflow: TextOverflow.ellipsis),
           trailing: comingSoon ? Text('Soon', style: TextStyle(fontSize: 10, color: Theme.of(rowContext).colorScheme.onSurfaceVariant)) : null,
@@ -695,6 +1018,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }[label] ?? Icons.circle_outlined;
 
   void _themeMenu(BuildContext buttonContext, LayerLink link) {
+    final palette = SaarthoThemes.paletteFor(widget.themeController.selected);
     final overlay = Overlay.of(buttonContext);
     late OverlayEntry entry;
     entry = OverlayEntry(
@@ -708,14 +1032,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Material(
               elevation: 14,
               borderRadius: BorderRadius.circular(14),
-              color: Theme.of(buttonContext).colorScheme.surface,
+              color: palette.surface,
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 300, maxHeight: 500),
                 child: ListView(padding: const EdgeInsets.all(10), shrinkWrap: true, children: [
-                  Padding(padding: const EdgeInsets.all(8), child: Text('Choose UI theme', style: Theme.of(buttonContext).textTheme.titleMedium)),
+                  Padding(padding: const EdgeInsets.all(8), child: Text('Choose UI theme', style: TextStyle(color: palette.text, fontWeight: FontWeight.bold))),
                   for (final theme in SaarthoThemes.names)
                     ListTile(
                       dense: true,
+                      selected: theme == widget.themeController.selected,
                       leading: Row(mainAxisSize: MainAxisSize.min, children: [
                         Container(
                           width: 44,
@@ -723,15 +1048,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           decoration: BoxDecoration(
                             gradient: LinearGradient(colors: [SaarthoThemes.paletteFor(theme).primary, SaarthoThemes.paletteFor(theme).secondary]),
                             borderRadius: BorderRadius.circular(7),
-                            border: Border.all(color: Theme.of(buttonContext).colorScheme.outlineVariant),
+                            border: Border.all(color: SaarthoThemes.paletteFor(theme).border),
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Icon(theme == _pendingTheme ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: Theme.of(buttonContext).colorScheme.secondary, size: 18),
+                        Icon(theme == widget.themeController.selected ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: SaarthoThemes.paletteFor(theme).icon, size: 18),
                       ]),
-                      title: Text(theme, style: const TextStyle(fontSize: 12)),
+                      title: Text(theme, style: TextStyle(fontSize: 12, color: palette.text)),
                       onTap: () {
-                        setState(() => _pendingTheme = theme);
                         entry.remove();
                         _confirmTheme(theme);
                       },
@@ -752,7 +1076,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           title: const Text('Apply UI Theme'),
           content: Text('Apply "$theme" throughout Saartho?'),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text('Cancel'),
+            ),
             FilledButton(
               onPressed: () {
                 widget.themeController.apply(theme);

@@ -1064,6 +1064,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           'Payment Out',
           'Purchase Fixed Assets',
         ];
+      case 'Cash and Bank':
+        return ['Bank Accounts', 'Cash in Hand', 'Loan Account', 'CC Account', 'Cheques', 'Fixed Assets'];
       default:
         return const [];
     }
@@ -1151,9 +1153,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ? () => Navigator.of(rowContext).push(MaterialPageRoute<void>(builder: (_) => const PlanPricingScreen()))
                 : label == 'Expense'
                     ? () => Navigator.of(rowContext).push(MaterialPageRoute<void>(builder: (_) => ExpenseManagementScreen(themeController: widget.themeController)))
-                    : subMenuOptions.isNotEmpty
-                        ? () => _showSubMenu(rowContext, themeLink, subMenuOptions)
-                        : null,
+                    : label == 'Reports'
+                        ? () => Navigator.of(rowContext).push(MaterialPageRoute<void>(builder: (_) => ReportsScreen(themeController: widget.themeController)))
+                        : subMenuOptions.isNotEmpty
+                            ? () => _showSubMenu(rowContext, themeLink, subMenuOptions)
+                            : null,
         subtitle: label == 'Plan Status'
             ? Text(
                 '${SaarthoPlan.name}\n${_plan.expiryLabel}',
@@ -1167,7 +1171,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
       return label == 'Change UI Theme Colour'
         ? CompositedTransformTarget(link: themeLink, child: item)
-        : label == 'Parties' || label == 'Items & Services' || label == 'Sale' || label == 'Purchase'
+        : label == 'Parties' || label == 'Items & Services' || label == 'Sale' || label == 'Purchase' || label == 'Cash and Bank'
             ? CompositedTransformTarget(link: themeLink, child: item)
             : item;
   }
@@ -1765,6 +1769,172 @@ class _ExpenseManagementScreenState extends State<ExpenseManagementScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class ReportsScreen extends StatelessWidget {
+  const ReportsScreen({super.key, required this.themeController});
+
+  final SaarthoThemeController themeController;
+
+  static const _sections = <({String title, List<String> reports})>[
+    (
+      title: 'Transaction Report',
+      reports: [
+        'Sale Report',
+        'Purchase Report',
+        'Payment In Report',
+        'Payment Out Report',
+        'Day Book',
+        'Bill wise Profit & Loss',
+        'Sale Ageing Report',
+        'Purchase Ageing Report',
+        'Profit and Loss Report',
+        'Balance Sheet',
+      ],
+    ),
+    (
+      title: 'Party Report',
+      reports: [
+        'Party Ledger',
+        'Party wise Profit & Loss',
+        'All Parties Report',
+        'Party Report by Item',
+        'Sale/Purchase by Party',
+        'Party Group Report',
+      ],
+    ),
+    (
+      title: 'Item/Stock Report',
+      reports: [
+        'Stock Summary Report',
+        'Item Report by Party',
+        'Item wise Profit & Loss',
+        'Low stock Summary',
+        'Stock details Report',
+        'Sale Report by Item Category',
+        'Purchase Report by Item Category',
+        'Stock Summary by Item Category',
+        'Item Batch Report',
+        'Item Serial Report',
+        'Raw Materials Report',
+        'Manufacturing Report',
+        'Item Discount Report',
+      ],
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final palette = SaarthoThemes.paletteFor(themeController.selected);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Reports'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(18),
+          children: [
+            for (final section in _sections) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: scheme.surface,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                  border: Border.all(color: scheme.outlineVariant),
+                ),
+                child: Text(
+                  section.title,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: _readableTextColor(context, palette),
+                  ),
+                ),
+              ),
+              Container(
+                decoration: BoxDecoration(
+                  color: scheme.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: scheme.outlineVariant),
+                ),
+                child: Column(
+                  children: [
+                    for (int index = 0; index < section.reports.length; index++)
+                      InkWell(
+                        onTap: () => _openPlaceholder(context, section.reports[index]),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              top: BorderSide(
+                                color: scheme.outlineVariant,
+                                width: index == 0 ? 0 : 1,
+                              ),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.list_alt_outlined, size: 18, color: palette.secondary),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  section.reports[index],
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: _readableTextColor(context, palette),
+                                  ),
+                                ),
+                              ),
+                              Icon(Icons.chevron_right, color: palette.secondary),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  static Color _readableTextColor(BuildContext context, SaarthoPalette palette) {
+    final surface = Theme.of(context).colorScheme.surface;
+    final luminance = surface.computeLuminance();
+    if (luminance > 0.6) {
+      return palette.text;
+    }
+    return Colors.white;
+  }
+
+  void _openPlaceholder(BuildContext context, String reportName) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: Text(reportName)),
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'Report selected: $reportName\n\nComing next in Saartho.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+          ),
         ),
       ),
     );

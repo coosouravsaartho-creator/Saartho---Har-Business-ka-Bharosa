@@ -3,7 +3,10 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'web_theme_guard_io.dart' if (dart.library.html) 'web_theme_guard_web.dart' as web_theme_guard;
+
 void main() {
+  web_theme_guard.resetBrowserChrome();
   runApp(const SaarthoApp());
 }
 
@@ -363,7 +366,7 @@ class _SetupAccountScreenState extends State<SetupAccountScreen> {
                 child: Container(
                   margin: const EdgeInsets.only(bottom: 18),
                   child: ElevatedButton(
-                    onPressed: () => _openDashboard(),
+                    onPressed: () => _openDashboard(replaceCurrent: true),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF0E2C73),
                       foregroundColor: Colors.white,
@@ -646,16 +649,21 @@ class _SetupAccountScreenState extends State<SetupAccountScreen> {
     );
   }
 
-  void _openDashboard() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => DashboardScreen(
-          userName: _nameController.text.trim(),
-          businessName: _businessController.text.trim(),
-          themeController: widget.themeController,
-        ),
+  void _openDashboard({bool replaceCurrent = false}) {
+    final route = MaterialPageRoute<void>(
+      builder: (_) => DashboardScreen(
+        userName: _nameController.text.trim(),
+        businessName: _businessController.text.trim(),
+        themeController: widget.themeController,
       ),
     );
+
+    if (replaceCurrent) {
+      Navigator.of(context).pushReplacement(route);
+      return;
+    }
+
+    Navigator.of(context).push(route);
   }
 }
 
@@ -827,6 +835,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
   DateTime? _customEnd;
   int _expiryDays = 30;
   final _plan = const SaarthoPlan();
+  static const List<String> _dateOptions = [
+    'Today',
+    'Yesterday',
+    'Last 3 Months',
+    'Last 6 Months',
+    'Custom Date Range',
+  ];
+  final Map<String, String> _sectionDateFilters = {
+    'Sale Information': 'Today',
+    'Purchase Information': 'Today',
+    'Receivable Balance': 'Today',
+    'Payable Balance': 'Today',
+  };
+  final Map<String, DateTimeRange?> _sectionCustomRanges = {
+    'Sale Information': null,
+    'Purchase Information': null,
+    'Receivable Balance': null,
+    'Payable Balance': null,
+  };
 
   String get _greeting {
     final hour = DateTime.now().hour;
@@ -840,6 +867,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ? Icons.wb_sunny_rounded
       : Icons.nightlight_round;
 
+  bool _isRoyalBlueWhiteTheme() => widget.themeController.selected == 'Dark Royal Blue & White';
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -849,7 +878,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [colors.surfaceContainerHighest, colors.surface, colors.surfaceContainerHighest],
+                colors: _isRoyalBlueWhiteTheme()
+                    ? const [Color(0xFF0C2F7A), Color(0xFF123B8F), Color(0xFF1A4FB2)]
+                    : [colors.surfaceContainerHighest, colors.surface, colors.surfaceContainerHighest],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -964,48 +995,181 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _sideMenu() {
     final items = ['Home', 'Parties', 'Items & Services', 'Sale', 'Purchase', 'Expense', 'Cash and Bank', 'Reports', 'Additional Options', 'Settings', 'Backup & Restore', 'Change UI Theme Colour', 'Multi Device Sync', 'Plan & Pricing', 'Plan Status', 'Give Feedback'];
     final colors = Theme.of(context).colorScheme;
+    final royal = _isRoyalBlueWhiteTheme();
     return Container(width: 260, decoration: BoxDecoration(
-      gradient: LinearGradient(colors: [colors.surfaceContainerHighest, colors.surface], begin: Alignment.topCenter, end: Alignment.bottomCenter),
-      boxShadow: [BoxShadow(color: colors.primary.withValues(alpha: .22), blurRadius: 16, offset: const Offset(3, 0))],
+      gradient: LinearGradient(
+        colors: royal ? const [Color(0xFF0B3D91), Color(0xFF123B8F)] : [colors.surfaceContainerHighest, colors.surface],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ),
+      boxShadow: [BoxShadow(color: (royal ? const Color(0xFF0B2E6B) : colors.primary).withValues(alpha: .22), blurRadius: 16, offset: const Offset(3, 0))],
     ), child: ListView(padding: const EdgeInsets.fromLTRB(14, 14, 14, 24), children: [
-      Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: colors.primaryContainer, borderRadius: BorderRadius.circular(8)), child: Row(children: [
-        Expanded(child: Text(widget.businessName.isEmpty ? 'Add Company Name' : widget.businessName, style: const TextStyle(fontWeight: FontWeight.bold))),
-        const Icon(Icons.edit_outlined, size: 18),
-      ])),
+      Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: royal ? const Color(0xFF0D4AAE) : colors.primaryContainer,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(children: [
+          Expanded(child: Text(widget.businessName.isEmpty ? 'Add Company Name' : widget.businessName, style: TextStyle(fontWeight: FontWeight.bold, color: royal ? Colors.white : null))),
+          Icon(Icons.edit_outlined, size: 18, color: royal ? Colors.white : null),
+        ])),
       const SizedBox(height: 14), for (final item in items) _sideItem(item),
     ]));
   }
 
+  Color _menuTextColor(BuildContext context, {required bool selected}) {
+    if (_isRoyalBlueWhiteTheme()) return Colors.white;
+
+    final palette = SaarthoThemes.paletteFor(widget.themeController.selected);
+    if (selected) return palette.selectedForeground;
+
+    final sidebarSurface = Theme.of(context).colorScheme.surface;
+    return sidebarSurface.computeLuminance() > 0.65 ? palette.text : Colors.white;
+  }
+
+  Color _menuIconColor(BuildContext context, {required bool selected}) {
+    if (_isRoyalBlueWhiteTheme()) return Colors.white;
+
+    final palette = SaarthoThemes.paletteFor(widget.themeController.selected);
+    if (selected) return palette.selectedForeground;
+
+    final sidebarSurface = Theme.of(context).colorScheme.surface;
+    return sidebarSurface.computeLuminance() > 0.65 ? palette.icon : Colors.white;
+  }
+
+  List<String> _subMenuChoicesFor(String label) {
+    switch (label) {
+      case 'Parties':
+        return ['Add Buyers', 'Add Suppliers', 'Party Group'];
+      case 'Items & Services':
+        return ['Add Items', 'Add Services', 'Add Raw Materials'];
+      case 'Sale':
+        return [
+          'Sale Invoices',
+          'Estimate / Quotation',
+          'Proforma Invoice',
+          'Sale Order',
+          'Sale Return',
+          'Credit Note',
+          'Payment In',
+          'Sale Fixed Assets',
+        ];
+      case 'Purchase':
+        return [
+          'Purchase Invoice',
+          'Purchase Order',
+          'Purchase Return',
+          'Debit Note',
+          'Payment Out',
+          'Purchase Fixed Assets',
+        ];
+      default:
+        return const [];
+    }
+  }
+
+  void _showSubMenu(BuildContext buttonContext, LayerLink link, List<String> options) {
+    final overlay = Overlay.of(buttonContext);
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (context) => Positioned.fill(
+        child: Stack(children: [
+          GestureDetector(onTap: entry.remove, behavior: HitTestBehavior.translucent),
+          CompositedTransformFollower(
+            link: link,
+            showWhenUnlinked: false,
+            offset: const Offset(0, 44),
+            child: Material(
+              elevation: 12,
+              borderRadius: BorderRadius.circular(14),
+              color: Theme.of(buttonContext).colorScheme.surface,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 300, minWidth: 260),
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(8),
+                  shrinkWrap: true,
+                  itemCount: options.length,
+                  itemBuilder: (context, index) => ListTile(
+                    dense: true,
+                    title: Text(options[index]),
+                    onTap: () => entry.remove(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ]),
+      ),
+    );
+    overlay.insert(entry);
+  }
+
   Widget _sideItem(String label) {
     final comingSoon = label == 'Multi Device Sync';
+    final selected = label == 'Home';
     final themeLink = LayerLink();
-    final item = Builder(builder: (rowContext) => ListTile(
-          dense: true, selected: label == 'Home', selectedTileColor: Theme.of(rowContext).colorScheme.primary,
-          leading: Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [
-                label == 'Home' ? Theme.of(rowContext).colorScheme.secondary : Theme.of(rowContext).colorScheme.surfaceContainer,
-                Theme.of(rowContext).colorScheme.surfaceContainerHighest,
-              ]),
-              borderRadius: BorderRadius.circular(10),
-              boxShadow: [BoxShadow(color: Theme.of(rowContext).colorScheme.primary.withValues(alpha: .20), blurRadius: 5, offset: const Offset(0, 2))],
-            ),
-            child: Icon(_iconFor(label), size: 19, color: Theme.of(rowContext).colorScheme.primary),
+    final item = Builder(builder: (rowContext) {
+      final palette = SaarthoThemes.paletteFor(widget.themeController.selected);
+      final textColor = _menuTextColor(rowContext, selected: selected);
+      final iconColor = _menuIconColor(rowContext, selected: selected);
+      final subMenuOptions = _subMenuChoicesFor(label);
+      return ListTile(
+        dense: true,
+        selected: selected,
+        selectedTileColor: palette.selectedBackground,
+        selectedColor: palette.selectedForeground,
+        textColor: textColor,
+        iconColor: iconColor,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        leading: Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [
+              selected ? palette.secondary : palette.elevated,
+              palette.background,
+            ]),
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [BoxShadow(color: palette.primary.withValues(alpha: .20), blurRadius: 5, offset: const Offset(0, 2))],
           ),
-          title: Text(label, overflow: TextOverflow.ellipsis),
-          trailing: comingSoon ? Text('Soon', style: TextStyle(fontSize: 10, color: Theme.of(rowContext).colorScheme.onSurfaceVariant)) : null,
-          onTap: label == 'Change UI Theme Colour'
-              ? () => _themeMenu(rowContext, themeLink)
-              : label == 'Plan & Pricing'
-                  ? () => Navigator.of(rowContext).push(MaterialPageRoute<void>(builder: (_) => const PlanPricingScreen()))
-                  : null,
-          subtitle: label == 'Plan Status' ? Text('${SaarthoPlan.name}\n${_plan.expiryLabel}', style: const TextStyle(fontSize: 10)) : null,
-        ));
+          child: Icon(_iconFor(label), size: 19, color: iconColor),
+        ),
+        title: Text(
+          label,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: textColor,
+            fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
+            fontSize: 14,
+          ),
+        ),
+        trailing: comingSoon ? Text('Soon', style: TextStyle(fontSize: 10, color: palette.mutedText)) : null,
+        onTap: label == 'Change UI Theme Colour'
+            ? () => _themeMenu(rowContext, themeLink)
+            : label == 'Plan & Pricing'
+                ? () => Navigator.of(rowContext).push(MaterialPageRoute<void>(builder: (_) => const PlanPricingScreen()))
+                : label == 'Expense'
+                    ? () => Navigator.of(rowContext).push(MaterialPageRoute<void>(builder: (_) => ExpenseManagementScreen(themeController: widget.themeController)))
+                    : subMenuOptions.isNotEmpty
+                        ? () => _showSubMenu(rowContext, themeLink, subMenuOptions)
+                        : null,
+        subtitle: label == 'Plan Status'
+            ? Text(
+                '${SaarthoPlan.name}\n${_plan.expiryLabel}',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: selected ? palette.selectedForeground.withValues(alpha: 0.9) : palette.mutedText,
+                ),
+              )
+            : null,
+      );
+    });
       return label == 'Change UI Theme Colour'
         ? CompositedTransformTarget(link: themeLink, child: item)
-        : item;
+        : label == 'Parties' || label == 'Items & Services' || label == 'Sale' || label == 'Purchase'
+            ? CompositedTransformTarget(link: themeLink, child: item)
+            : item;
   }
 
   IconData _iconFor(String label) => const {
@@ -1124,7 +1288,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: DropdownButton<String>(
           value: _dateFilter,
           hint: const Text('Dashboard date range'),
-          items: const ['Today', 'Yesterday', 'Last Month', 'Last 3 Months', 'Last 6 Months', 'Custom Date Range']
+          items: _dateOptions
               .map((filter) => DropdownMenuItem(value: filter, child: Text(filter)))
               .toList(),
           onChanged: (value) {
@@ -1137,6 +1301,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
           },
         ),
       );
+
+  String _sectionDateLabel(String sectionKey) {
+    final active = _sectionDateFilters[sectionKey] ?? 'Today';
+    final range = _sectionCustomRanges[sectionKey];
+    if (active == 'Custom Date Range' && range != null) {
+      final start = range.start;
+      final end = range.end;
+      return '${start.day.toString().padLeft(2, '0')}/${start.month.toString().padLeft(2, '0')}/${start.year} - ${end.day.toString().padLeft(2, '0')}/${end.month.toString().padLeft(2, '0')}/${end.year}';
+    }
+    return active;
+  }
 
   Future<void> _pickCustomRange() async {
     final range = await showDateRangePicker(
@@ -1154,9 +1329,90 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Widget _sectionTitle(String title) => Padding(padding: const EdgeInsets.only(bottom: 12), child: Row(children: [Expanded(child: Text(title, style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary))), Text(_dateFilter, style: const TextStyle(fontSize: 12, color: Colors.blueGrey))]));
+  Future<void> _pickSectionCustomRange(String sectionKey) async {
+    final existing = _sectionCustomRanges[sectionKey];
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      initialDateRange: existing != null ? DateTimeRange(start: existing.start, end: existing.end) : null,
+    );
+    if (range == null) return;
+    setState(() {
+      _sectionCustomRanges[sectionKey] = range;
+      _sectionDateFilters[sectionKey] = 'Custom Date Range';
+    });
+  }
 
-  Widget _metricCard(String title) => SizedBox(width: 210, child: _panel(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(_iconFor(title), color: Theme.of(context).colorScheme.secondary, size: 22), const SizedBox(height: 8), Text(title, style: const TextStyle(fontWeight: FontWeight.bold)), const SizedBox(height: 12), _privateText('No data available'), const SizedBox(height: 10), Text(_dateFilter, style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant)), Icon(Icons.calendar_today_outlined, size: 16, color: Theme.of(context).colorScheme.secondary)])));
+  void _handleSectionDateChoice(String sectionKey, String value) {
+    if (value == 'Custom Date Range') {
+      _pickSectionCustomRange(sectionKey);
+      return;
+    }
+
+    setState(() {
+      _sectionDateFilters[sectionKey] = value;
+      _sectionCustomRanges[sectionKey] = null;
+    });
+  }
+
+  Widget _sectionTitle(String title) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(children: [
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.bold,
+                color: _isRoyalBlueWhiteTheme() ? Colors.white : Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ),
+          Text(
+            _dateFilter,
+            style: TextStyle(
+              fontSize: 12,
+              color: _isRoyalBlueWhiteTheme() ? Colors.white70 : Colors.blueGrey,
+            ),
+          )
+        ]),
+      );
+
+  Widget _metricCard(String title) {
+    final sectionKey = title;
+    final royal = _isRoyalBlueWhiteTheme();
+    return SizedBox(
+      width: 210,
+      child: _panel(
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(_iconFor(title), color: royal ? Colors.white70 : Theme.of(context).colorScheme.secondary, size: 22),
+                const Spacer(),
+                PopupMenuButton<String>(
+                  tooltip: 'Select date range',
+                  icon: Icon(Icons.calendar_today_outlined, size: 16, color: royal ? Colors.white70 : Theme.of(context).colorScheme.secondary),
+                  onSelected: (value) => _handleSectionDateChoice(sectionKey, value),
+                  itemBuilder: (context) => _dateOptions
+                      .map((option) => PopupMenuItem<String>(value: option, child: Text(option)))
+                      .toList(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: royal ? Colors.white : null)),
+            const SizedBox(height: 12),
+            _privateText('No data available'),
+            const SizedBox(height: 10),
+            Text(_sectionDateLabel(sectionKey), style: TextStyle(fontSize: 11, color: royal ? Colors.white70 : Theme.of(context).colorScheme.onSurfaceVariant)),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _chartCard() => SizedBox(width: 430, height: 180, child: _panel(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Financial comparison', style: TextStyle(fontWeight: FontWeight.bold)), Text('Current month vs previous month', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)), const Spacer(), Icon(Icons.show_chart, size: 56, color: Theme.of(context).colorScheme.secondary), const Spacer(), DropdownButton<String>(value: 'Current Financial Year', items: const [DropdownMenuItem(value: 'Current Financial Year', child: Text('Current Financial Year')), DropdownMenuItem(value: 'Previous Financial Year', child: Text('Previous Financial Year'))], onChanged: (_) {})])));
 
@@ -1164,14 +1420,355 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _quickLinks() => _panel(Wrap(spacing: 10, runSpacing: 10, children: [const Text('Quick Links', style: TextStyle(fontWeight: FontWeight.bold)), for (final link in ['Sale', 'Purchase', 'Expense', 'Add Party', 'Add Item']) OutlinedButton.icon(onPressed: () {}, icon: const Icon(Icons.arrow_forward, size: 16), label: Text(link))]));
 
-  Widget _panel(Widget child) => Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [Theme.of(context).colorScheme.surfaceContainer, Theme.of(context).colorScheme.surface], begin: Alignment.topLeft, end: Alignment.bottomRight),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Theme.of(context).colorScheme.secondary.withValues(alpha: .34)),
-        boxShadow: [BoxShadow(color: Theme.of(context).colorScheme.primary.withValues(alpha: .24), blurRadius: 14, offset: const Offset(0, 5)), BoxShadow(color: Colors.black.withValues(alpha: .12), blurRadius: 2, offset: const Offset(0, -1))],
-      ), child: child);
+  Widget _panel(Widget child) => Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: _isRoyalBlueWhiteTheme()
+              ? const LinearGradient(
+                  colors: [Color(0xFF0F3D9E), Color(0xFF143E96)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : LinearGradient(
+                  colors: [Theme.of(context).colorScheme.surfaceContainer, Theme.of(context).colorScheme.surface],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _isRoyalBlueWhiteTheme() ? const Color(0xFF2E6AE6) : Theme.of(context).colorScheme.secondary.withValues(alpha: .34)),
+          boxShadow: [
+            BoxShadow(
+              color: _isRoyalBlueWhiteTheme() ? const Color(0x330D2D6E) : Theme.of(context).colorScheme.primary.withValues(alpha: .24),
+              blurRadius: 14,
+              offset: const Offset(0, 5),
+            ),
+            BoxShadow(color: Colors.black.withValues(alpha: .12), blurRadius: 2, offset: const Offset(0, -1)),
+          ],
+        ),
+        child: child,
+      );
 
-  Widget _privateText(String text) => _privacy ? ImageFiltered(imageFilter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5), child: Text(text, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))) : Text(text, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold));
+  Widget _privateText(String text) => _privacy
+      ? ImageFiltered(
+          imageFilter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: _isRoyalBlueWhiteTheme() ? Colors.white : null,
+            ),
+          ),
+        )
+      : Text(
+          text,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: _isRoyalBlueWhiteTheme() ? Colors.white : null,
+          ),
+        );
+}
+
+class ExpenseEntry {
+  ExpenseEntry(this.id, this.name, this.category, this.party, this.amount, this.date);
+
+  final String id;
+  final String name;
+  final String category;
+  final String party;
+  final double amount;
+  final DateTime date;
+}
+
+class ExpenseManagementScreen extends StatefulWidget {
+  const ExpenseManagementScreen({super.key, required this.themeController});
+
+  final SaarthoThemeController themeController;
+
+  @override
+  State<ExpenseManagementScreen> createState() => _ExpenseManagementScreenState();
+}
+
+class _ExpenseManagementScreenState extends State<ExpenseManagementScreen> {
+  final List<ExpenseEntry> _entries = [
+    ExpenseEntry('EXP-1001', 'Office Rent', 'Rent', 'Landlord', 18000, DateTime.now()),
+    ExpenseEntry('EXP-1002', 'Electricity Bill', 'Utilities', 'Power Grid', 4250, DateTime.now().subtract(const Duration(days: 1))),
+    ExpenseEntry('EXP-1003', 'Courier Charges', 'Logistics', 'Swift Couriers', 2000, DateTime.now().subtract(const Duration(days: 2))),
+    ExpenseEntry('EXP-1004', 'Marketing Ad Spend', 'Marketing', 'BrandBoost', 9500, DateTime.now()),
+    ExpenseEntry('EXP-1005', 'Staff Lunch', 'Meals', 'Cafeteria', 1600, DateTime.now().subtract(const Duration(days: 3))),
+  ];
+  String _dateFilter = 'Today';
+  DateTime? _start;
+  DateTime? _end;
+  int _selectedIndex = -1;
+
+  List<ExpenseEntry> get _filteredEntries {
+    final now = DateTime.now();
+    DateTime start;
+    DateTime end;
+
+    switch (_dateFilter) {
+      case 'Today':
+        start = DateTime(now.year, now.month, now.day);
+        end = DateTime(now.year, now.month, now.day, 23, 59, 59, 999);
+        break;
+      case 'Yesterday':
+        final yesterday = now.subtract(const Duration(days: 1));
+        start = DateTime(yesterday.year, yesterday.month, yesterday.day);
+        end = DateTime(yesterday.year, yesterday.month, yesterday.day, 23, 59, 59, 999);
+        break;
+      case 'Custom Range':
+        start = _start ?? DateTime(now.year, now.month, now.day);
+        end = _end ?? DateTime(now.year, now.month, now.day, 23, 59, 59, 999);
+        break;
+      default:
+        start = DateTime(now.year, now.month, now.day);
+        end = DateTime(now.year, now.month, now.day, 23, 59, 59, 999);
+    }
+
+    return _entries.where((entry) => !entry.date.isBefore(start) && !entry.date.isAfter(end)).toList();
+  }
+
+  Future<void> _pickCustomRange() async {
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      initialDateRange: _start != null && _end != null ? DateTimeRange(start: _start!, end: _end!) : null,
+    );
+    if (range != null) {
+      setState(() {
+        _start = range.start;
+        _end = range.end;
+        _dateFilter = 'Custom Range';
+      });
+    }
+  }
+
+  void _addExpense() {
+    final now = DateTime.now();
+    final newEntry = ExpenseEntry(
+      'EXP-${(_entries.length + 1).toString().padLeft(4, '0')}',
+      'New Expense',
+      'General',
+      'Vendor',
+      2500,
+      now,
+    );
+    setState(() {
+      _entries.insert(0, newEntry);
+      _selectedIndex = 0;
+    });
+  }
+
+  void _deleteExpense(int index) {
+    final target = _filteredEntries[index];
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete Expense'),
+        content: Text('Delete ${target.name}?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              setState(() {
+                _entries.remove(target);
+                _selectedIndex = -1;
+              });
+              Navigator.pop(dialogContext);
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _editExpense(int index) {
+    final item = _filteredEntries[index];
+    final nameController = TextEditingController(text: item.name);
+    final partyController = TextEditingController(text: item.party);
+    final categoryController = TextEditingController(text: item.category);
+    final amountController = TextEditingController(text: item.amount.toStringAsFixed(0));
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Edit Expense'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Expense name')),
+              const SizedBox(height: 8),
+              TextField(controller: categoryController, decoration: const InputDecoration(labelText: 'Category')),
+              const SizedBox(height: 8),
+              TextField(controller: partyController, decoration: const InputDecoration(labelText: 'Party')),
+              const SizedBox(height: 8),
+              TextField(controller: amountController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Amount')),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              final updated = ExpenseEntry(
+                item.id,
+                nameController.text.trim().isEmpty ? item.name : nameController.text.trim(),
+                categoryController.text.trim().isEmpty ? item.category : categoryController.text.trim(),
+                partyController.text.trim().isEmpty ? item.party : partyController.text.trim(),
+                double.tryParse(amountController.text) ?? item.amount,
+                item.date,
+              );
+              setState(() {
+                final indexInAll = _entries.indexOf(item);
+                if (indexInAll >= 0) _entries[indexInAll] = updated;
+              });
+              Navigator.pop(dialogContext);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = _filteredEntries;
+    final total = filtered.fold<double>(0, (sum, item) => sum + item.amount);
+    final palette = SaarthoThemes.paletteFor(widget.themeController.selected);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Expense Management'),
+        actions: [
+          IconButton(
+            onPressed: _addExpense,
+            icon: const Icon(Icons.add),
+            tooltip: 'Add Expense',
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text('Expense Dashboard', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                const Spacer(),
+                DropdownButton<String>(
+                  value: _dateFilter,
+                  items: const [
+                    DropdownMenuItem(value: 'Today', child: Text('Today')),
+                    DropdownMenuItem(value: 'Yesterday', child: Text('Yesterday')),
+                    DropdownMenuItem(value: 'Custom Range', child: Text('Custom Date Range')),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    if (value == 'Custom Range') {
+                      _pickCustomRange();
+                    } else {
+                      setState(() => _dateFilter = value);
+                    }
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Total expense amount', style: TextStyle(fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 8),
+                          Text('₹${total.toStringAsFixed(2)}', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Transactions', style: TextStyle(fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 8),
+                          Text('${filtered.length}', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Expanded(
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: filtered.isEmpty
+                      ? const Center(child: Text('No expense data found for this range.'))
+                      : ListView.separated(
+                          itemCount: filtered.length,
+                          separatorBuilder: (context, index) => const Divider(),
+                          itemBuilder: (context, index) {
+                            final item = filtered[index];
+                            final selected = _selectedIndex == index;
+                            return ListTile(
+                              selected: selected,
+                              leading: CircleAvatar(
+                                backgroundColor: palette.secondary.withValues(alpha: .18),
+                                child: Icon(Icons.receipt_long_outlined, color: palette.primary),
+                              ),
+                              title: Text(item.name),
+                              subtitle: Text('${item.category} • ${item.party}'),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text('₹${item.amount.toStringAsFixed(2)}'),
+                                  const SizedBox(width: 8),
+                                  PopupMenuButton<String>(
+                                    onSelected: (value) {
+                                      if (value == 'Edit') {
+                                        _editExpense(index);
+                                      } else if (value == 'Delete') {
+                                        _deleteExpense(index);
+                                      }
+                                    },
+                                    itemBuilder: (context) => const [
+                                      PopupMenuItem(value: 'Edit', child: Text('Edit')),
+                                      PopupMenuItem(value: 'Delete', child: Text('Delete')),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              onTap: () => setState(() => _selectedIndex = index),
+                            );
+                          },
+                        ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class SaarthoPricingPlan {
